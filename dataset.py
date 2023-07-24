@@ -153,9 +153,17 @@ def DataPreprocessing(data_root):
     test_pd.to_csv(os.path.join(data_root, 'test.csv'), index=False)
 
 class KAMPdataset(Dataset):
-    def __init__(self, data_root, window_size, stride, is_uni=False):
+    def __init__(self, data_path, window_size, stride, is_uni=False):
+        """KAMP 데이터에 기반한 파이토치 데이터셋
+
+        Args:
+            data_path (str): 데이터셋 경로
+            window_size (int): 진동 데이터 분석 윈도우 크기
+            stride (int): 윈도우를 이동하는 stride 크기
+            is_uni (bool, optional): 단변량 분석을 할지, 이변량 분석을 할지의 여부(추후 다변량으로 확장 가능할 수도 있음)
+        """
         
-        data_pd = pd.read_csv(data_root)
+        data_pd = pd.read_csv(data_path)
 
         self.dataset = []
         self.is_uni = is_uni
