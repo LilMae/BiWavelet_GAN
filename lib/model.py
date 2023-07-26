@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.utils.data
 import torchvision.utils as vutils
 
-from lib.networks import NetD, Decoder, Encoder, weights_init
+from lib.networks import Encoder, Decoder, NetD, weights_init
 from lib.visualizer import Visualizer
 from lib.loss import l2_loss
 from lib.evaluate import evaluate
@@ -262,96 +262,56 @@ class Ganomaly(BaseModel):
         self.times = []
         self.total_steps = 0
 
+        ##
+        # Step 1. Create and initialize networks. 
+        """
         
-        # 모델 생성 및 가중치 초기화
+        BiGAN에는 Encoder, Generator, Decoder가 존재함
+        
+        """
         self.netg = Decoder(self.opt).to(self.device)
         self.netd = NetD(self.opt).to(self.device)
-        self.enc = Encoder(isize            = self.opt.isize,
-                           nz               = self.opt.nz,
-                           nc               = self.opt.nc,
-                           ndf              = self.opt.ndf,
-                           ngpu             = self.opt.ngpu,
-                           n_extra_layers   = self.opt.n_extra_layers,
-                           add_final_conv   = self.opt.add_final_conv).to(self.device)
+        self.nete = Encoder(self.opt).to(self.device)
+        
         
         self.netg.apply(weights_init)
         self.netd.apply(weights_init)
-        self.enc.apply(weights_init)
+        self.nete.apply(weights_init)
 
-        ## 학습을 이어서하는 경우에 사용
+        ##
         if self.opt.resume != '':
             print("\nLoading pre-trained networks.")
             self.opt.iter = torch.load(os.path.join(self.opt.resume, 'netG.pth'))['epoch']
             self.netg.load_state_dict(torch.load(os.path.join(self.opt.resume, 'netG.pth'))['state_dict'])
             self.netd.load_state_dict(torch.load(os.path.join(self.opt.resume, 'netD.pth'))['state_dict'])
-            self.enc.load_state_dict(torch.load(os.path.join(self.opt.resume, 'Enc.pth'))['state_dict'])
+            self.nete.load_state_dict(torch.load(os.path.join(self.opt.resume, 'netE.pth'))['state_dict'])
             print("\tDone.\n")
 
-        # 손실함수
-        self.l_g = nn.BCELoss()
-        self.l_d = nn.BCELoss()
-        self.l_enc = nn.BCELoss()
+        # 사용하는 손실함수들
+        self.l_bce = nn.BCELoss()
 
         ##
-        # Initialize input tensors.
-        self.input = torch.empty(size=(self.opt.batchsize, self.opt.nc , self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
+        # 동작에 필요한 텐서들의 틀모양
+        self.z = torch.empty(size= (self.opt.batchsize, self.opt.ndf, self.opt.nz, self.opt.nz), dtype=torch.float32, device=self.device)
+        self.x = torch.epmty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
+        self.Gz = torch.epmty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
+        self.Ex = torch.empty(size= (self.opt.batchsize, self.opt.ndf, self.opt.nz, self.opt.nz), dtype=torch.float32, device=self.device)
+        self.real_label = torch.ones (size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
+        self.fake_label = torch.zeros(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
+        
+        
+        #내가 쓰는건 아닌데?
         self.label = torch.empty(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
         self.gt    = torch.empty(size=(opt.batchsize,), dtype=torch.long, device=self.device)
         self.fixed_input = torch.empty(size=(self.opt.batchsize, 3, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
-        
-        self.y_true = torch.ones (size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
-        self.y_fake = torch.zeros(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
-        self.z_fake = torch.empty(size=(self.opt.batchsize, self.opt.ndf, self.opt.nz, self.opt.nz), dtype=torch.float32, device=self.device)
-        self.x_true = torch.empty(size=(self.opt.batchsize, self.opt.nc , self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
-        
         
         # Setup optimizer
         if self.opt.isTrain:
             self.netg.train()
             self.netd.train()
-            self.enc.train()
+            self.nete.train()
             self.optimizer_d = optim.Adam(self.netd.parameters(), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
-            self.optimizer_ge = optim.Adam( list(self.netg.parameters()) + 
-                                            list(self.enc.parameters()), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
-
-    ##
-    def forward_g(self):
-        """ Forward propagate through netG
-        """
-        self.x_fake = self.netg(self.input)
-
-    ##
-    
-    def forward_enc(self):
-        self.z_true = self.enc(self.x_true)
-    
-    def forward_d(self):
-        """ Forward propagate through netD
-        """
-        self.out_true = self.netd(self.x_true)
-        self.out_fake = self.netd(self.x_fake)
-
-    ##
-    def backward_ge(self):
-        """ Backpropagate through netG
-        """
-        
-        self.loss_g = self.l_g(self.out_true, self.y_fake) + self.l_g(self.out_fake, self.y_true)
-        self.loss_enc = self.l_enc()
-        self.loss_ge = 
-        self.err_g.backward(retain_graph=True)
-
-    ##
-    def backward_d(self):
-        """ Backpropagate through netD
-        """
-        # Real - Fake Loss
-        self.err_d_real = self.l_bce(self.pred_real, self.real_label)
-        self.err_d_fake = self.l_bce(self.pred_fake, self.fake_label)
-
-        # NetD Loss & Backward-Pass
-        self.err_d = (self.err_d_real + self.err_d_fake) * 0.5
-        self.err_d.backward()
+            self.optimizer_ge = optim.Adam(self.netg.parameters(), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
 
     ##
     def reinit_d(self):
@@ -360,21 +320,41 @@ class Ganomaly(BaseModel):
         self.netd.apply(weights_init)
         print('   Reloading net d')
 
-    def optimize_params(self):
-        """ Forwardpass, Loss Computation and Backwardpass.
-        """
-        # Forward-pass
-        self.forward_g()
-        self.forward_d()
-
-        # Backward-pass
-        # netg
-        self.optimizer_g.zero_grad()
-        self.backward_g()
-        self.optimizer_g.step()
-
-        # netd
-        self.optimizer_d.zero_grad()
-        self.backward_d()
-        self.optimizer_d.step()
-        if self.err_d.item() < 1e-5: self.reinit_d()
+    def train(self):
+        
+        for epoch in range(self.opt.niter):
+            
+            print(f'Start Trainning Epoch : {epoch}th ')
+            losses_d = 0.0
+            losses_ge = 0.0
+            for img, signal, _ in range(self.dataloader['train']):
+                
+                self.optimizer_d.zero_grad()
+                self.optimizer_ge.zero_grad()
+                
+                # Generator
+                self.z = torch.randn(size=(self.opt.batchsize, self.opt.ndf, self.opt.nz, self.opt.nz))
+                self.Gz = self.netg(self.z)
+                
+                # Encoder 
+                self.x = img
+                self.Ex = self.nete(self.x)
+                
+                # Discriminator
+                out_real = self.netd(self.x, self.Ex)
+                out_fake = self.netd(self.Gz, self.z)
+                
+                loss_d = self.l_bce(out_real, self.real_label) + self.l_bce(out_fake, self.fake_label)
+                loss_ge = self.l_bce(out_real, self.fake_label) + self.l_bce(out_fake, self.real_label)
+                
+                loss_d.backward(retain_graph=True)
+                self.optimizer_d.step()
+                
+                loss_ge.backward()
+                self.optimizer_ge.step()
+            
+                losses_d += loss_d.item()
+                losses_ge += loss_ge.item()
+            
+            print(f'Loss for Discriminator : {losses_d}')
+            print(f'losses')

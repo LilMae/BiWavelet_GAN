@@ -155,15 +155,41 @@ class NetD(nn.Module):
             add_final_conv (bool, optional): if True, put Conv kerenl (K x 4 x 4) at last. Defaults to True.
         """
         super(NetD, self).__init__()
-        model = Encoder(isize, nz, nc, ndf, ngpu, n_extra_layers, add_final_conv)
-        layers = list(model.main.children())
-
-        self.features = nn.Sequential(*layers[:-1])
+        
+        
+        
+        self.Enc_x = Encoder(isize = isize,  # 이미지 크기의 텐서를
+                        nz = nz//2,     # z사이즈의 절반 사이즈로
+                        nc = nc,        # 이미지의 차원을
+                        ndf = ndf*2,    # z 차원의 2배로
+                        ngpu = ngpu, 
+                        n_extra_layers=0, 
+                        add_final_conv=True)
+        self.Enc_Z = Encoder(isize = nz,     # z 사이즈의 텐서를
+                        nz = nz//2,     # z 사이즈의 절반 사이즈로
+                        nc = ndf,       # z 차원을
+                        ndf = ndf*2,    # z 차원의 2배로
+                        ngpu = ngpu, 
+                        n_extra_layers=0, 
+                        add_final_conv=True)
+        self.model = Encoder(isize = nz//2,  # z 절반 사이즈의 텐서를
+                        nz = 1,         # 1로
+                        nc = nc*2,      # z 2배 차원을
+                        ndf = ndf,      # z 차원으로
+                        ngpu = ngpu, 
+                        n_extra_layers=n_extra_layers, 
+                        add_final_conv=True)
+        
+        layers = list(self.model.main.children())
         self.classifier = nn.Sequential(layers[-1])
         self.classifier.add_module('Sigmoid', nn.Sigmoid())
 
-    def forward(self, x):
-        features = self.features(x)
+    def forward(self, x, z):
+        x_feateure = self.Enc_x(x)
+        z_feature = self.Enc_z(z)
+        
+        features = torch.cat((x_feateure,z_feature), dim=1)
+        
         classifier = self.classifier(features)
         classifier = classifier.view(-1, 1).squeeze(1)
 
@@ -171,19 +197,19 @@ class NetD(nn.Module):
     
 if __name__ == '__main__':
     netG = Decoder(isize=256,
-                    nz=100,
+                    nz=128,
                     nc=1,
                     ngf=64,
                     ngpu=1)
     
     netD = NetD(isize=256,
-                nz=100,
+                nz=128,
                 nc=1,
                 ndf=64,
                 ngpu=1)
     
     Enc = Encoder(isize=256,
-                nz=100,
+                nz=128,
                 nc=1,
                 ndf=64,
                 ngpu=1)
