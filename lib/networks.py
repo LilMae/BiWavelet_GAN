@@ -48,6 +48,7 @@ class Encoder(nn.Module):
                             nn.BatchNorm2d(cndf))
             main.add_module('extra-layers-{0}-{1}-relu'.format(t, cndf),
                             nn.LeakyReLU(0.2, inplace=True))
+            print(f't :  {t}')
 
         while csize > 4:
             in_feat = cndf
@@ -95,10 +96,12 @@ class Decoder(nn.Module):
 
         cngf, tisize = ngf // 2, 4
         while tisize != isize:
+            print(f'cngf {cngf} , tisize {tisize}, isize {isize}  ')
             cngf = cngf * 2
             tisize = tisize * 2
 
         main = nn.Sequential()
+        
         # input is Z, going into a convolution
         main.add_module('initial-{0}-{1}-convt'.format(nz, cngf),
                         nn.ConvTranspose2d(nz, cngf, 4, 1, 0, bias=False))
@@ -117,6 +120,8 @@ class Decoder(nn.Module):
                             nn.ReLU(True))
             cngf = cngf // 2
             csize = csize * 2
+            
+            print(f'csize : {csize} , isize : {isize}')
 
         # Extra layers
         for t in range(n_extra_layers):
@@ -126,12 +131,15 @@ class Decoder(nn.Module):
                             nn.BatchNorm2d(cngf))
             main.add_module('extra-layers-{0}-{1}-relu'.format(t, cngf),
                             nn.ReLU(True))
+            
+            print(f't : {t}')
 
         main.add_module('final-{0}-{1}-convt'.format(cngf, nc),
                         nn.ConvTranspose2d(cngf, nc, 4, 2, 1, bias=False))
         main.add_module('final-{0}-tanh'.format(nc),
                         nn.Tanh())
         self.main = main
+        print(f'main : {main}')
 
     def forward(self, input):
         if self.ngpu > 1:

@@ -7,7 +7,6 @@ from collections import OrderedDict
 import os
 import time
 import numpy as np
-import torch
 from tqdm import tqdm
 
 from torch.autograd import Variable
@@ -98,10 +97,11 @@ class BaseModel():
             [reals, fakes, fixed]
         """
 
-        reals = self.x.data
-        fakes = self.Gz.data
+        reals = self.input.data
+        fakes = self.fake.data
+        fixed = self.netg(self.fixed_input)[0].data
 
-        return reals, fakes
+        return reals, fakes, fixed
 
     ##
     def save_weights(self, epoch):
@@ -118,8 +118,6 @@ class BaseModel():
                    '%s/netG.pth' % (weight_dir))
         torch.save({'epoch': epoch + 1, 'state_dict': self.netd.state_dict()},
                    '%s/netD.pth' % (weight_dir))
-        torch.save({'epoch': epoch + 1, 'state_dict': self.nete.state_dict()},
-                   '%s/netE.pth' % (weight_dir))
 
     ##
     def train_one_epoch(self):
@@ -249,15 +247,15 @@ class BaseModel():
             return performance
 
 ##
-class BiGAN(BaseModel):
+class Ganomaly(BaseModel):
     """GANomaly Class
     """
 
     @property
-    def name(self): return 'BiGAN'
+    def name(self): return 'Ganomaly'
 
     def __init__(self, opt, dataloader):
-        super(BiGAN, self).__init__(opt, dataloader)
+        super(Ganomaly, self).__init__(opt, dataloader)
 
         # -- Misc attributes
         self.epoch = 0
@@ -271,27 +269,9 @@ class BiGAN(BaseModel):
         BiGAN에는 Encoder, Generator, Decoder가 존재함
         
         """
-        print(f'Building Generator ...')
-        self.netg = Decoder(isize=self.opt.isize,
-                            nz=self.opt.nz,
-                            nc=self.opt.nc,
-                            ngf=self.opt.ngf,
-                            ngpu=self.opt.ngpu
-                            ).to(self.device)
-        print(f'Building Discriminator ...')
-        self.netd = NetD(isize = self.opt.isize, 
-                         nz = self.opt.nz, 
-                         nc = self.opt.nc, 
-                         ndf  = self.opt.ndf,
-                         ngpu = self.opt.ngpu
-                         ).to(self.device)
-        print(f'Building Encoder ... ')
-        self.nete = Encoder(isize = self.opt.isize,  # 이미지 크기의 텐서를
-                        nz = self.opt.nz,     # z사이즈의 절반 사이즈로
-                        nc = self.opt.nc,        # 이미지의 차원을
-                        ndf = self.opt.ndf,    # z 차원의 2배로
-                        ngpu = self.opt.ngpu
-                        ).to(self.device)
+        self.netg = Decoder(self.opt).to(self.device)
+        self.netd = NetD(self.opt).to(self.device)
+        self.nete = Encoder(self.opt).to(self.device)
         
         
         self.netg.apply(weights_init)
@@ -342,83 +322,39 @@ class BiGAN(BaseModel):
 
     def train(self):
         
-        self.total_steps = 0
-        best_auc = 0
-        
-        # Train for niter epochs.
-        print(">> Training model %s." % self.name)
-        for self.epoch in range(self.opt.iter, self.opt.niter):
-            # Train for one epoch
-            self.train_one_epoch()
-
-            self.save_weights(self.epoch)
+        for epoch in range(self.opt.niter):
             
+            print(f'Start Trainning Epoch : {epoch}th ')
+            losses_d = 0.0
+            losses_ge = 0.0
+            for img, signal, _ in range(self.dataloader['train']):
+                
+                self.optimizer_d.zero_grad()
+                self.optimizer_ge.zero_grad()
+                
+                # Generator
+                self.z = torch.randn(size=(self.opt.batchsize, self.opt.ndf, self.opt.nz, self.opt.nz))
+                self.Gz = self.netg(self.z)
+                
+                # Encoder 
+                self.x = img
+                self.Ex = self.nete(self.x)
+                
+                # Discriminator
+                out_real = self.netd(self.x, self.Ex)
+                out_fake = self.netd(self.Gz, self.z)
+                
+                loss_d = self.l_bce(out_real, self.real_label) + self.l_bce(out_fake, self.fake_label)
+                loss_ge = self.l_bce(out_real, self.fake_label) + self.l_bce(out_fake, self.real_label)
+                
+                loss_d.backward(retain_graph=True)
+                self.optimizer_d.step()
+                
+                loss_ge.backward()
+                self.optimizer_ge.step()
             
-        print(">> Training model %s.[Done]" % self.name)
-    
-    def set_input(self, input):
-        self.z = torch.randn(size=(self.opt.batchsize, self.opt.ndf, self.opt.nz, self.opt.nz))
-        self.x = input
-    
-    
-    def optimize_params(self):
-        
-        #Generator - Forward
-        self.Gz = self.netg(self.z)
-        
-        #Encoder - Forward
-        self.Ex = self.nete(self.x)
-        
-        #Discriminator - Forward
-        out_real = self.netd(self.x, self.Ex)
-        out_fake = self.netd(self.Gz, self.z)
-        
-        self.loss_d = self.l_bce(out_real, self.real_label) + self.l_bce(out_fake, self.fake_label)
-        self.loss_ge = self.l_bce(out_real, self.fake_label) + self.l_bce(out_fake, self.real_label)
-        
-        self.optimizer_d.zero_grad()
-        self.loss_d.backward(retain_graph=True)
-        self.optimizer_d.step()
-        
-        self.optimizer_ge.zero_grad()
-        self.loss_ge.backward()
-        self.optimizer_ge.step()
-        
-    def get_errors(self):
-        """ Get netD and netG errors.
-
-        Returns:
-            [OrderedDict]: Dictionary containing errors.
-        """
-
-        errors = OrderedDict([
-            ('loss_d', self.loss_d.item()),
-            ('loss_ge', self.loss_ge.item())])
-
-        return errors
-    
-    def train_one_epoch(self):
-        
-        self.netg.train()
-        self.netd.train()
-        self.nete.train()
-        
-        epoch_iter = 0
-        for img, signal, _ in range(self.dataloader['train']):
-            self.total_steps += self.opt.batchsize
-            epoch_iter += self.opt.batchsize
+                losses_d += loss_d.item()
+                losses_ge += loss_ge.item()
             
-            self.set_input(img)
-            self.optimize_params()
-            
-            if self.total_steps % self.opt.print_freq == 0:
-                errors = self.get_errors()
-                if self.opt.display:
-                    counter_ratio = float(epoch_iter) / len(self.dataloader['train'].dataset)
-                    self.visualizer.plot_current_errors(self.epoch, counter_ratio, errors)
-
-            if self.total_steps % self.opt.save_image_freq == 0:
-                reals, fakes = self.get_current_images()
-                self.visualizer.save_current_images(self.epoch, reals, fakes)
-                if self.opt.display:
-                    self.visualizer.display_current_images(reals, fakes)
+            print(f'Loss for Discriminator : {losses_d}')
+            print(f'losses')

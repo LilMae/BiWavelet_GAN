@@ -245,3 +245,29 @@ if __name__ =='__main__':
 
     # my_data = KAMPdataset(data_root='./data/test.csv', window_size=256, stride=100)
     # sample = my_data.__getitem__(0)
+    
+def load_vib(opt):
+    
+    train_dataset = KAMPdataset(data_path=os.path.join(os.getcwd(), 'data','train.csv'),
+                                window_size=opt.isize,
+                                stride=100)
+    test_dataset = KAMPdataset(data_path=os.path.join(os.getcwd(), 'data','test.csv'),
+                               window_size=opt.isize,
+                                stride=100)
+    
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
+                                               batch_size=opt.batchsize,
+                                                shuffle=True,
+                                                num_workers=int(opt.workers),
+                                                drop_last = True,
+                                                worker_init_fn=(None if opt.manualseed == -1
+                                                else lambda x: np.random.seed(opt.manualseed)))
+    test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
+                                               batch_size=opt.batchsize,
+                                                shuffle=True,
+                                                num_workers=int(opt.workers),
+                                                drop_last = True,
+                                                worker_init_fn=(None if opt.manualseed == -1
+                                                else lambda x: np.random.seed(opt.manualseed)))
+    
+    return {'train' : train_loader, 'test' : test_loader}
