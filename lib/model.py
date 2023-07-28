@@ -286,11 +286,11 @@ class BiGAN(BaseModel):
                          ngpu = self.opt.ngpu
                          ).to(self.device)
         print(f'Building Encoder ... ')
-        self.nete = Encoder(isize = self.opt.isize,  # 이미지 크기의 텐서를
-                        nz = self.opt.nz,     # z사이즈의 절반 사이즈로
-                        nc = self.opt.nc,        # 이미지의 차원을
-                        ndf = self.opt.ndf,    # z 차원의 2배로
-                        ngpu = self.opt.ngpu
+        self.nete = Encoder(isize = self.opt.isize,  
+                        nz = self.opt.nz,     
+                        nc = self.opt.nc,        
+                        ndf = self.opt.ndf,    
+                        ngpu = self.opt.ngpu,
                         ).to(self.device)
         
         
@@ -312,10 +312,10 @@ class BiGAN(BaseModel):
 
         ##
         # 동작에 필요한 텐서들의 틀모양
-        self.z = torch.empty(size= (self.opt.batchsize, self.opt.ndf, self.opt.nz, self.opt.nz), dtype=torch.float32, device=self.device)
-        self.x = torch.epmty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
-        self.Gz = torch.epmty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
-        self.Ex = torch.empty(size= (self.opt.batchsize, self.opt.ndf, self.opt.nz, self.opt.nz), dtype=torch.float32, device=self.device)
+        self.z = torch.empty(size= (self.opt.batchsize, self.opt.nz, self.opt.ndf, self.opt.ndf), dtype=torch.float32, device=self.device)
+        self.x = torch.empty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
+        self.Gz = torch.empty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
+        self.Ex = torch.empty(size= (self.opt.batchsize, self.opt.nz, self.opt.ndf, self.opt.ndf), dtype=torch.float32, device=self.device)
         self.real_label = torch.ones (size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
         self.fake_label = torch.zeros(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
         
@@ -331,7 +331,8 @@ class BiGAN(BaseModel):
             self.netd.train()
             self.nete.train()
             self.optimizer_d = optim.Adam(self.netd.parameters(), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
-            self.optimizer_ge = optim.Adam(self.netg.parameters(), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
+            self.optimizer_ge = optim.Adam(list(self.netg.parameters()) +
+                                           list(self.nete.parameters()), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
 
     ##
     def reinit_d(self):
@@ -357,25 +358,38 @@ class BiGAN(BaseModel):
         print(">> Training model %s.[Done]" % self.name)
     
     def set_input(self, input):
-        self.z = torch.randn(size=(self.opt.batchsize, self.opt.ndf, self.opt.nz, self.opt.nz))
-        self.x = input
+        self.z = torch.randn(size=(self.opt.batchsize, self.opt.nz, 1, 1)).to(self.device).float()
+        self.x = input.to(self.device).float()
+        
+        # print(f'x.size() : {self.x.size()}')
+        # print(f'z.size() : {self.z.size()}')
+        
     
     
     def optimize_params(self):
         
+        print('Start Forwarding')
         #Generator - Forward
+        print(f'self.z : {self.z.size()}')
         self.Gz = self.netg(self.z)
+        print(f'self.Gz : {self.Gz.size()}')
+        
         
         #Encoder - Forward
         self.Ex = self.nete(self.x)
         
         #Discriminator - Forward
+        
+        print(f'Ex : {self.Ex.size()}')
+        
         out_real = self.netd(self.x, self.Ex)
         out_fake = self.netd(self.Gz, self.z)
         
+        print(f'Forawrd Finish')
+        
         self.loss_d = self.l_bce(out_real, self.real_label) + self.l_bce(out_fake, self.fake_label)
         self.loss_ge = self.l_bce(out_real, self.fake_label) + self.l_bce(out_fake, self.real_label)
-        
+        print('Start Backward')
         self.optimizer_d.zero_grad()
         self.loss_d.backward(retain_graph=True)
         self.optimizer_d.step()
@@ -383,6 +397,8 @@ class BiGAN(BaseModel):
         self.optimizer_ge.zero_grad()
         self.loss_ge.backward()
         self.optimizer_ge.step()
+        
+        print('Backward Finish')
         
     def get_errors(self):
         """ Get netD and netG errors.
@@ -404,7 +420,7 @@ class BiGAN(BaseModel):
         self.nete.train()
         
         epoch_iter = 0
-        for img, signal, _ in range(self.dataloader['train']):
+        for img, signal, _ in tqdm(self.dataloader['train']):
             self.total_steps += self.opt.batchsize
             epoch_iter += self.opt.batchsize
             

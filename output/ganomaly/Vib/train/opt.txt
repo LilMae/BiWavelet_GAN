@@ -1,9 +1,9 @@
 ------------ Options -------------
 abnormal_class: car
-batchsize: 64
+batchsize: 2
 beta1: 0.5
 dataroot: 
-dataset: cifar10
+dataset: Vib
 device: gpu
 display: False
 display_id: 0
@@ -20,7 +20,7 @@ lr: 0.0002
 manualseed: -1
 metric: roc
 model: ganomaly
-name: ganomaly/cifar10
+name: ganomaly/Vib
 nc: 1
 ndf: 64
 ngf: 64

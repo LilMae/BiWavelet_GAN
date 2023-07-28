@@ -16,18 +16,11 @@ def weights_init(mod):
         mod.bias.data.fill_(0)
 
 class Encoder(nn.Module):
-    def __init__(self, isize, nz, nc, ndf, ngpu, n_extra_layers=0, add_final_conv=True):
-        """ Feature Extractor
+    """
+    DCGAN ENCODER NETWORK
+    """
 
-        Args:
-            isize (int): input image size (size of x)
-            nz (int): size of latent vector (size of z)
-            nc (int): input image channel (dim of x)
-            ndf (int): latent vector channel (dim of z)
-            ngpu (int): number of GPU for parallel  
-            n_extra_layers (int, optional): if need, You can insert more layers. Defaults to 0.
-            add_final_conv (bool, optional): if True, put Conv kerenl (K x 4 x 4) at last. Defaults to True.
-        """
+    def __init__(self, isize, nz, nc, ndf, ngpu, n_extra_layers=0, add_final_conv=True):
         super(Encoder, self).__init__()
         self.ngpu = ngpu
         assert isize % 16 == 0, "isize has to be a multiple of 16"
@@ -48,7 +41,6 @@ class Encoder(nn.Module):
                             nn.BatchNorm2d(cndf))
             main.add_module('extra-layers-{0}-{1}-relu'.format(t, cndf),
                             nn.LeakyReLU(0.2, inplace=True))
-            print(f't :  {t}')
 
         while csize > 4:
             in_feat = cndf
@@ -77,31 +69,22 @@ class Encoder(nn.Module):
 
         return output
 
-
+##
 class Decoder(nn.Module):
+    """
+    DCGAN DECODER NETWORK
+    """
     def __init__(self, isize, nz, nc, ngf, ngpu, n_extra_layers=0):
-        """ Feature Extractor
-
-        Args:
-            isize (int): input image size (size of x)
-            nz (int): size of latent vector (size of z)
-            nc (int): input image channel (dim of x)
-            ngf (int): same as ndf (dim of z)
-            ngpu (int): number of GPU for parallel  
-            n_extra_layers (int, optional): if need, You can insert more layers. Defaults to 0.
-        """
         super(Decoder, self).__init__()
         self.ngpu = ngpu
         assert isize % 16 == 0, "isize has to be a multiple of 16"
 
         cngf, tisize = ngf // 2, 4
         while tisize != isize:
-            print(f'cngf {cngf} , tisize {tisize}, isize {isize}  ')
             cngf = cngf * 2
             tisize = tisize * 2
 
         main = nn.Sequential()
-        
         # input is Z, going into a convolution
         main.add_module('initial-{0}-{1}-convt'.format(nz, cngf),
                         nn.ConvTranspose2d(nz, cngf, 4, 1, 0, bias=False))
@@ -120,8 +103,6 @@ class Decoder(nn.Module):
                             nn.ReLU(True))
             cngf = cngf // 2
             csize = csize * 2
-            
-            print(f'csize : {csize} , isize : {isize}')
 
         # Extra layers
         for t in range(n_extra_layers):
@@ -131,15 +112,12 @@ class Decoder(nn.Module):
                             nn.BatchNorm2d(cngf))
             main.add_module('extra-layers-{0}-{1}-relu'.format(t, cngf),
                             nn.ReLU(True))
-            
-            print(f't : {t}')
 
         main.add_module('final-{0}-{1}-convt'.format(cngf, nc),
                         nn.ConvTranspose2d(cngf, nc, 4, 2, 1, bias=False))
         main.add_module('final-{0}-tanh'.format(nc),
                         nn.Tanh())
         self.main = main
-        print(f'main : {main}')
 
     def forward(self, input):
         if self.ngpu > 1:
@@ -147,6 +125,7 @@ class Decoder(nn.Module):
         else:
             output = self.main(input)
         return output
+
     
 
 class NetD(nn.Module):
@@ -169,17 +148,16 @@ class NetD(nn.Module):
         self.Enc_x = Encoder(isize = isize,  # 이미지 크기의 텐서를
                         nz = nz//2,     # z사이즈의 절반 사이즈로
                         nc = nc,        # 이미지의 차원을
-                        ndf = ndf*2,    # z 차원의 2배로
+                        ndf = ndf,    # z 차원의 2배로
                         ngpu = ngpu, 
                         n_extra_layers=0, 
                         add_final_conv=True)
-        self.Enc_Z = Encoder(isize = nz,     # z 사이즈의 텐서를
-                        nz = nz//2,     # z 사이즈의 절반 사이즈로
-                        nc = ndf,       # z 차원을
-                        ndf = ndf*2,    # z 차원의 2배로
+        self.Enc_z = Decoder(isize = 16,     
+                        nz = nz,     
+                        nc = nz,       
+                        ngf = ndf,    
                         ngpu = ngpu, 
-                        n_extra_layers=0, 
-                        add_final_conv=True)
+                        n_extra_layers=0)
         self.model = Encoder(isize = nz//2,  # z 절반 사이즈의 텐서를
                         nz = 1,         # 1로
                         nc = nc*2,      # z 2배 차원을
@@ -194,7 +172,12 @@ class NetD(nn.Module):
 
     def forward(self, x, z):
         x_feateure = self.Enc_x(x)
+        
+        print(f'x_feature : {x_feateure.size()}')
+        
         z_feature = self.Enc_z(z)
+        
+        print(f'z_feature : {z_feature.size()}')
         
         features = torch.cat((x_feateure,z_feature), dim=1)
         
@@ -204,21 +187,15 @@ class NetD(nn.Module):
         return classifier
     
 if __name__ == '__main__':
-    netG = Decoder(isize=256,
-                    nz=128,
+    
+    
+    
+    de = Decoder(isize=256,
+                    nz=64,
                     nc=1,
-                    ngf=64,
+                    ngf=16,
                     ngpu=1)
+    z = torch.randn(size=(1,64,1,1))
+    res = de(z)
     
-    netD = NetD(isize=256,
-                nz=128,
-                nc=1,
-                ndf=64,
-                ngpu=1)
-    
-    Enc = Encoder(isize=256,
-                nz=128,
-                nc=1,
-                ndf=64,
-                ngpu=1)
-    
+    print(res.size())

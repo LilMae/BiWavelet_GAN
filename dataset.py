@@ -216,7 +216,6 @@ class KAMPdataset(Dataset):
             s2 = data[1]
 
             state = data[-1]
-            print(s2)
 
             x_tensor = torch.tensor(np.concatenate((s1,s2)),dtype=torch.float64)
             y_tensor = torch.tensor(state, dtype=torch.float64)
@@ -233,6 +232,7 @@ class KAMPdataset(Dataset):
                                                         nptsfreq        = len(s1))
                 
                 Wcoh_tensor = torch.tensor(Wcoh, dtype=torch.float64)
+                Wcoh_tensor = Wcoh_tensor.unsqueeze(0)
                 
 
                 return Wcoh_tensor, x_tensor, y_tensor

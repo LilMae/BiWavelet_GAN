@@ -26,14 +26,14 @@ class Options():
 
         ##
         # Base
-        self.parser.add_argument('--dataset', default='cifar10', help='folder | cifar10 | mnist ')
+        self.parser.add_argument('--dataset', default='Vib', help='folder | cifar10 | mnist ')
         self.parser.add_argument('--dataroot', default='', help='path to dataset')
-        self.parser.add_argument('--batchsize', type=int, default=64, help='input batch size')
+        self.parser.add_argument('--batchsize', type=int, default=2, help='input batch size')
         self.parser.add_argument('--workers', type=int, help='number of data loading workers', default=8)
         self.parser.add_argument('--droplast', action='store_true', default=True, help='Drop last batch size.')
         self.parser.add_argument('--isize', type=int, default=256, help='input image size.')
         self.parser.add_argument('--nc', type=int, default=1, help='input image channels')
-        self.parser.add_argument('--nz', type=int, default=128, help='size of the latent z vector')
+        self.parser.add_argument('--nz', type=int, default=64, help='size of the latent z vector')
         self.parser.add_argument('--ngf', type=int, default=64)
         self.parser.add_argument('--ndf', type=int, default=64)
         self.parser.add_argument('--extralayers', type=int, default=0, help='Number of extra layers on gen and disc')
