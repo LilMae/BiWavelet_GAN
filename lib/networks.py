@@ -144,24 +144,35 @@ class NetD(nn.Module):
         super(NetD, self).__init__()
         
         
-        
-        self.Enc_x = Encoder(isize = isize,  # 이미지 크기의 텐서를
-                        nz = nz//2,     # z사이즈의 절반 사이즈로
-                        nc = nc,        # 이미지의 차원을
-                        ndf = ndf,    # z 차원의 2배로
+        # Enc X : (nc, isize, isize) -> (nz, 1, 1) -> (nz, 16, 16)
+        self.Enc_x1 = Encoder(isize = isize,  
+                        nz = nz,     
+                        nc = nc,        
+                        ndf = ndf,    
                         ngpu = ngpu, 
                         n_extra_layers=0, 
                         add_final_conv=True)
+        self.Enc_x2 = Decoder(isize=16,
+                              nz = nz,
+                              nc=nz,
+                              ngf=ndf,
+                              ngpu=ngpu,
+                              n_extra_layers=0
+                              )
+
+        # Enc z : (nz, 1, 1) -> (nz, 16, 16)
         self.Enc_z = Decoder(isize = 16,     
                         nz = nz,     
                         nc = nz,       
                         ngf = ndf,    
                         ngpu = ngpu, 
                         n_extra_layers=0)
-        self.model = Encoder(isize = nz//2,  # z 절반 사이즈의 텐서를
-                        nz = 1,         # 1로
-                        nc = nc*2,      # z 2배 차원을
-                        ndf = ndf,      # z 차원으로
+        
+
+        self.model = Encoder(isize = 16,  
+                        nz = 1,         
+                        nc = nz*2,      
+                        ndf = ndf,      
                         ngpu = ngpu, 
                         n_extra_layers=n_extra_layers, 
                         add_final_conv=True)
@@ -171,7 +182,8 @@ class NetD(nn.Module):
         self.classifier.add_module('Sigmoid', nn.Sigmoid())
 
     def forward(self, x, z):
-        x_feateure = self.Enc_x(x)
+        x = self.Enc_x1(x)
+        x_feateure = self.Enc_x2(x)
         
         print(f'x_feature : {x_feateure.size()}')
         
@@ -180,9 +192,9 @@ class NetD(nn.Module):
         print(f'z_feature : {z_feature.size()}')
         
         features = torch.cat((x_feateure,z_feature), dim=1)
-        
-        classifier = self.classifier(features)
-        classifier = classifier.view(-1, 1).squeeze(1)
+        features = self.model(features)
+        # classifier = self.classifier(features)
+        classifier = features.view(-1, 1).squeeze(1)
 
         return classifier
     
@@ -190,12 +202,9 @@ if __name__ == '__main__':
     
     
     
-    de = Decoder(isize=256,
-                    nz=64,
-                    nc=1,
-                    ngf=16,
-                    ngpu=1)
-    z = torch.randn(size=(1,64,1,1))
-    res = de(z)
+    model = NetD(isize=256, nz=64, nc=1, ndf=16, ngpu=1)
+    z = torch.randn(size=(2,64,1,1))
+    x = torch.randn(size=(2,1,256,256))
+    res = model(x,z)
     
     print(res.size())
