@@ -312,18 +312,18 @@ class BiGAN(BaseModel):
 
         ##
         # 동작에 필요한 텐서들의 틀모양
-        self.z = torch.empty(size= (self.opt.batchsize, self.opt.nz, self.opt.ndf, self.opt.ndf), dtype=torch.float32, device=self.device)
-        self.x = torch.empty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
-        self.Gz = torch.empty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
-        self.Ex = torch.empty(size= (self.opt.batchsize, self.opt.nz, self.opt.ndf, self.opt.ndf), dtype=torch.float32, device=self.device)
-        self.real_label = torch.ones (size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
-        self.fake_label = torch.zeros(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
+        # self.z = torch.empty(size= (self.opt.batchsize, self.opt.nz, self.opt.ndf, self.opt.ndf), dtype=torch.float32, device=self.device)
+        # self.x = torch.empty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
+        # self.Gz = torch.empty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
+        # self.Ex = torch.empty(size= (self.opt.batchsize, self.opt.nz, self.opt.ndf, self.opt.ndf), dtype=torch.float32, device=self.device)
+        # self.real_label = torch.ones (size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
+        # self.fake_label = torch.zeros(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
         
         
         #내가 쓰는건 아닌데?
-        self.label = torch.empty(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
-        self.gt    = torch.empty(size=(opt.batchsize,), dtype=torch.long, device=self.device)
-        self.fixed_input = torch.empty(size=(self.opt.batchsize, 3, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
+        # self.label = torch.empty(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
+        # self.gt    = torch.empty(size=(opt.batchsize,), dtype=torch.long, device=self.device)
+        # self.fixed_input = torch.empty(size=(self.opt.batchsize, 3, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
         
         # Setup optimizer
         if self.opt.isTrain:
@@ -366,28 +366,30 @@ class BiGAN(BaseModel):
         
     
     
-    def optimize_params(self):
-        
+    def optimize_params(self, z, img):
+        x = img
         print('Start Forwarding')
         #Generator - Forward
-        print(f'self.z : {self.z.size()}')
-        self.Gz = self.netg(self.z)
-        print(f'self.Gz : {self.Gz.size()}')
+        # print(f'self.z : {self.z.size()}')
+        Gz = self.netg(z)
+        # print(f'self.Gz : {self.Gz.size()}')
         
         
         #Encoder - Forward
-        self.Ex = self.nete(self.x)
+        Ex = self.nete(x)
         
         #Discriminator - Forward
         
         # print(f'Ex : {self.Ex.size()}')
         
-        out_real = self.netd(self.x, self.Ex)
-        out_fake = self.netd(self.Gz, self.z)
+        out_real = self.netd(x, Ex)
+        out_fake = self.netd(Gz, z)
         
         # print(f'Forawrd Finish')
-        real_label = self.real_label
-        fake_label = self.fake_label
+
+        real_label = torch.ones (size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
+        fake_label = torch.zeros(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
+
 
         loss_d = self.l_bce(out_real, real_label) + self.l_bce(out_fake, fake_label)
         loss_ge = self.l_bce(out_real, fake_label) + self.l_bce(out_fake, real_label)
@@ -427,8 +429,8 @@ class BiGAN(BaseModel):
             self.total_steps += self.opt.batchsize
             epoch_iter += self.opt.batchsize
             
-            self.set_input(img)
-            self.optimize_params()
+            # self.set_input(img)
+            self.optimize_params(z, img)
             
             if self.total_steps % self.opt.print_freq == 0:
                 errors = self.get_errors()
