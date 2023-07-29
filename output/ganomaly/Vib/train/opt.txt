@@ -22,8 +22,8 @@ metric: roc
 model: ganomaly
 name: ganomaly/Vib
 nc: 1
-ndf: 64
-ngf: 64
+ndf: 16
+ngf: 16
 ngpu: 1
 niter: 15
 nz: 64

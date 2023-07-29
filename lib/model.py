@@ -1,8 +1,7 @@
 """GANomaly
 """
 # pylint: disable=C0301,E1101,W0622,C0103,R0902,R0915
-
-##
+##CUDA_LAUNCH_BLOCKING=1
 from collections import OrderedDict
 import os
 import time
@@ -37,6 +36,7 @@ class BaseModel():
         self.trn_dir = os.path.join(self.opt.outf, self.opt.name, 'train')
         self.tst_dir = os.path.join(self.opt.outf, self.opt.name, 'test')
         self.device = torch.device("cuda:0" if self.opt.device != 'cpu' else "cpu")
+        torch.autograd.set_detect_anomaly(True)
 
     ##
     def set_input(self, input:torch.Tensor):
@@ -71,7 +71,7 @@ class BaseModel():
         torch.manual_seed(seed_value)
         torch.cuda.manual_seed_all(seed_value)
         np.random.seed(seed_value)
-        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.deterministic = False
 
     ##
     def get_errors(self):
@@ -308,7 +308,7 @@ class BiGAN(BaseModel):
             print("\tDone.\n")
 
         # 사용하는 손실함수들
-        self.l_bce = nn.BCELoss()
+        self.l_bce = nn.CrossEntropyLoss()
 
         ##
         # 동작에 필요한 텐서들의 틀모양
@@ -380,25 +380,28 @@ class BiGAN(BaseModel):
         
         #Discriminator - Forward
         
-        print(f'Ex : {self.Ex.size()}')
+        # print(f'Ex : {self.Ex.size()}')
         
         out_real = self.netd(self.x, self.Ex)
         out_fake = self.netd(self.Gz, self.z)
         
-        print(f'Forawrd Finish')
-        
-        self.loss_d = self.l_bce(out_real, self.real_label) + self.l_bce(out_fake, self.fake_label)
-        self.loss_ge = self.l_bce(out_real, self.fake_label) + self.l_bce(out_fake, self.real_label)
-        print('Start Backward')
+        # print(f'Forawrd Finish')
+        real_label = self.real_label
+        fake_label = self.fake_label
+
+        loss_d = self.l_bce(out_real, real_label) + self.l_bce(out_fake, fake_label)
+        loss_ge = self.l_bce(out_real, fake_label) + self.l_bce(out_fake, real_label)
+
         self.optimizer_d.zero_grad()
-        self.loss_d.backward(retain_graph=True)
+        loss_d.backward(retain_graph=True)
         self.optimizer_d.step()
         
+
+
         self.optimizer_ge.zero_grad()
-        self.loss_ge.backward()
+        loss_ge.backward()
         self.optimizer_ge.step()
-        
-        print('Backward Finish')
+    
         
     def get_errors(self):
         """ Get netD and netG errors.
@@ -408,8 +411,8 @@ class BiGAN(BaseModel):
         """
 
         errors = OrderedDict([
-            ('loss_d', self.loss_d.item()),
-            ('loss_ge', self.loss_ge.item())])
+            ('loss_d', self.loss_d),
+            ('loss_ge', self.loss_ge)])
 
         return errors
     

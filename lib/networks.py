@@ -179,7 +179,7 @@ class NetD(nn.Module):
         
         layers = list(self.model.main.children())
         self.classifier = nn.Sequential(layers[-1])
-        self.classifier.add_module('Sigmoid', nn.Sigmoid())
+        self.model.add_module('Sigmoid', nn.Sigmoid())
 
     def forward(self, x, z):
         x = self.Enc_x1(x)
