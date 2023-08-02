@@ -101,11 +101,11 @@ class BaseModel():
         if not os.path.exists(weight_dir): os.makedirs(weight_dir)
 
         torch.save({'epoch': epoch + 1, 'state_dict': self.netg.state_dict()},
-                   '%s/netG.pth' % (weight_dir))
+                   f'%s/netG_{epoch}.pth' % (weight_dir))
         torch.save({'epoch': epoch + 1, 'state_dict': self.netd.state_dict()},
-                   '%s/netD.pth' % (weight_dir))
+                   f'%s/netD_{epoch}.pth' % (weight_dir))
         torch.save({'epoch': epoch + 1, 'state_dict': self.nete.state_dict()},
-                   '%s/netE.pth' % (weight_dir))
+                   f'%s/netE_{epoch}.pth' % (weight_dir))
 
     ##
     def train_one_epoch(self):
@@ -135,6 +135,7 @@ class BaseModel():
                     self.visualizer.display_current_images(reals, fakes, fixed)
 
         print(">> Training model %s. Epoch %d/%d" % (self.name, self.epoch+1, self.opt.niter))
+        print(f'Errs : {errors}')
         # self.visualizer.print_current_errors(self.epoch, errors)
 
     ##
