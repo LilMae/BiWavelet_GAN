@@ -36,7 +36,6 @@ class Visualizer():
         self.plot_data = None
         self.plot_res = None
 
-        # --
         # Path to train and test directories.
         self.img_dir = os.path.join(opt.outf, opt.name, 'train', 'images')
         self.tst_img_dir = os.path.join(opt.outf, opt.name, 'test', 'images')

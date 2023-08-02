@@ -20,6 +20,8 @@ from lib.visualizer import Visualizer
 from lib.loss import l2_loss
 from lib.evaluate import evaluate
 
+import matplotlib.pyplot as plt
+
 
 class BaseModel():
     """ Base Model for ganomaly
@@ -37,22 +39,6 @@ class BaseModel():
         self.tst_dir = os.path.join(self.opt.outf, self.opt.name, 'test')
         self.device = torch.device("cuda:0" if self.opt.device != 'cpu' else "cpu")
         torch.autograd.set_detect_anomaly(True)
-
-    ##
-    def set_input(self, input:torch.Tensor):
-        """ Set input and ground truth
-
-        Args:
-            input (FloatTensor): Input data for batch i.
-        """
-        with torch.no_grad():
-            self.input.resize_(input[0].size()).copy_(input[0])
-            self.gt.resize_(input[1].size()).copy_(input[1])
-            self.label.resize_(input[1].size())
-
-            # Copy the first batch as the fixed input.
-            if self.total_steps == self.opt.batchsize:
-                self.fixed_input.resize_(input[0].size()).copy_(input[0])
 
     ##
     def seed(self, seed_value):
@@ -355,25 +341,21 @@ class BiGAN(BaseModel):
             self.save_weights(self.epoch)
             
             
-        print(">> Training model %s.[Done]" % self.name)
-    
-    def set_input(self, input):
-        self.z = torch.randn(size=(self.opt.batchsize, self.opt.nz, 1, 1)).to(self.device).float()
-        self.x = input.to(self.device).float()
-        
-        # print(f'x.size() : {self.x.size()}')
-        # print(f'z.size() : {self.z.size()}')
-        
+        print(">> Training model %s.[Done]" % self.name)        
     
     
-    def optimize_params(self, z, img):
-        x = img
-        print('Start Forwarding')
+    def optimize_params(self, z, x):
+        self.x = x
+        self.optimizer_ge.zero_grad()
+        self.optimizer_d.zero_grad()
+        # print('Start Forwarding')
         #Generator - Forward
         # print(f'self.z : {self.z.size()}')
         Gz = self.netg(z)
+        self.Gz = Gz
         # print(f'self.Gz : {self.Gz.size()}')
         
+       
         
         #Encoder - Forward
         Ex = self.nete(x)
@@ -383,26 +365,31 @@ class BiGAN(BaseModel):
         # print(f'Ex : {self.Ex.size()}')
         
         out_real = self.netd(x, Ex)
-        out_fake = self.netd(Gz, z)
+        out_fake = self.netd(Gz.detach(), z.detach())
         
         # print(f'Forawrd Finish')
 
-        real_label = torch.ones (size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
+        real_label = torch.ones(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
         fake_label = torch.zeros(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
 
 
-        loss_d = self.l_bce(out_real, real_label) + self.l_bce(out_fake, fake_label)
+        
         loss_ge = self.l_bce(out_real, fake_label) + self.l_bce(out_fake, real_label)
 
-        self.optimizer_d.zero_grad()
-        loss_d.backward(retain_graph=True)
+        
+        loss_ge.backward(retain_graph=True)
+        self.optimizer_ge.step()
+        loss_d = self.l_bce(self.netd(x.detach(), Ex.detach()), real_label) + self.l_bce(out_fake, fake_label)
+        
+        loss_d.backward()
         self.optimizer_d.step()
+        
+        self.loss_ge = loss_ge.item()
+        self.loss_d = loss_d.item()
         
 
 
-        self.optimizer_ge.zero_grad()
-        loss_ge.backward()
-        self.optimizer_ge.step()
+
     
         
     def get_errors(self):
@@ -426,11 +413,19 @@ class BiGAN(BaseModel):
         
         epoch_iter = 0
         for img, signal, _ in tqdm(self.dataloader['train']):
+            
+            # plt.imsave(f'testing-{epoch_iter}.jpg',img[0][0])
+            
+            
             self.total_steps += self.opt.batchsize
             epoch_iter += self.opt.batchsize
             
+            
             # self.set_input(img)
-            self.optimize_params(z, img)
+            z = torch.randn(size=(self.opt.batchsize, self.opt.nz, 1, 1)).to(self.device).float()
+            x = img.to(self.device).float()
+            
+            self.optimize_params(z, x)
             
             if self.total_steps % self.opt.print_freq == 0:
                 errors = self.get_errors()

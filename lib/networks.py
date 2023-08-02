@@ -185,11 +185,11 @@ class NetD(nn.Module):
         x = self.Enc_x1(x)
         x_feateure = self.Enc_x2(x)
         
-        print(f'x_feature : {x_feateure.size()}')
+        # print(f'x_feature : {x_feateure.size()}')
         
         z_feature = self.Enc_z(z)
         
-        print(f'z_feature : {z_feature.size()}')
+        # print(f'z_feature : {z_feature.size()}')
         
         features = torch.cat((x_feateure,z_feature), dim=1)
         features = self.model(features)
