@@ -273,13 +273,21 @@ class BiGAN(BaseModel):
                          ngpu = self.opt.ngpu
                          ).to(self.device)
         print(f'Building Encoder ... ')
-        self.nete = Encoder(isize = self.opt.isize,  
-                        nz = self.opt.nz,     
+
+        if self.opt.conditional:
+            self.nete = Encoder(isize = self.opt.isize,  
+                        nz = self.opt.nz-4,     
                         nc = self.opt.nc,        
                         ndf = self.opt.ndf,    
                         ngpu = self.opt.ngpu,
                         ).to(self.device)
-        
+        else:
+            self.nete = Encoder(isize = self.opt.isize,  
+                            nz = self.opt.nz,     
+                            nc = self.opt.nc,        
+                            ndf = self.opt.ndf,    
+                            ngpu = self.opt.ngpu,
+                            ).to(self.device)
         
         self.netg.apply(weights_init)
         self.netd.apply(weights_init)
@@ -296,21 +304,6 @@ class BiGAN(BaseModel):
 
         # 사용하는 손실함수들
         self.l_bce = nn.CrossEntropyLoss()
-
-        ##
-        # 동작에 필요한 텐서들의 틀모양
-        # self.z = torch.empty(size= (self.opt.batchsize, self.opt.nz, self.opt.ndf, self.opt.ndf), dtype=torch.float32, device=self.device)
-        # self.x = torch.empty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
-        # self.Gz = torch.empty(size = (self.opt.batchsize, self.opt.nc, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
-        # self.Ex = torch.empty(size= (self.opt.batchsize, self.opt.nz, self.opt.ndf, self.opt.ndf), dtype=torch.float32, device=self.device)
-        # self.real_label = torch.ones (size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
-        # self.fake_label = torch.zeros(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
-        
-        
-        #내가 쓰는건 아닌데?
-        # self.label = torch.empty(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
-        # self.gt    = torch.empty(size=(opt.batchsize,), dtype=torch.long, device=self.device)
-        # self.fixed_input = torch.empty(size=(self.opt.batchsize, 3, self.opt.isize, self.opt.isize), dtype=torch.float32, device=self.device)
         
         # Setup optimizer
         if self.opt.isTrain:
@@ -345,22 +338,25 @@ class BiGAN(BaseModel):
         print(">> Training model %s.[Done]" % self.name)        
     
     
-    def optimize_params(self, z, x):
+    def optimize_params(self, z, x, one_hot):
         self.x = x
         self.optimizer_ge.zero_grad()
         self.optimizer_d.zero_grad()
         # print('Start Forwarding')
         #Generator - Forward
         # print(f'self.z : {self.z.size()}')
+
+
         Gz = self.netg(z)
         self.Gz = Gz
         # print(f'self.Gz : {self.Gz.size()}')
         
-       
-        
         #Encoder - Forward
-        Ex = self.nete(x)
-        
+        if self.opt.conditional:
+            Ex = self.nete(x)
+            Ex = torch.cat((Ex, one_hot), 1)
+        else:
+            Ex = self.nete(x)
         #Discriminator - Forward
         
         # print(f'Ex : {self.Ex.size()}')
@@ -413,7 +409,7 @@ class BiGAN(BaseModel):
         self.nete.train()
         
         epoch_iter = 0
-        for img, signal, _ in tqdm(self.dataloader['train']):
+        for img, signal, state in tqdm(self.dataloader['train']):
             
             # plt.imsave(f'testing-{epoch_iter}.jpg',img[0][0])
             
@@ -422,11 +418,21 @@ class BiGAN(BaseModel):
             epoch_iter += self.opt.batchsize
             
             
-            # self.set_input(img)
-            z = torch.randn(size=(self.opt.batchsize, self.opt.nz, 1, 1)).to(self.device).float()
+            if self.opt.conditional:
+                one_hot = torch.nn.functional.one_hot(state, num_classes=4)
+                one_hot = one_hot.unsqueeze(dim=-1)
+                one_hot = one_hot.unsqueeze(dim=-1)
+
+
+                z = torch.randn(size=(self.opt.batchsize, (self.opt.nz-4), 1, 1)).to(self.device).float()
+                z = torch.cat((z, one_hot), 1)
+            else:
+                z = torch.randn(size=(self.opt.batchsize, self.opt.nz, 1, 1)).to(self.device).float()
+                one_hot = False
+            
             x = img.to(self.device).float()
             
-            self.optimize_params(z, x)
+            self.optimize_params(z, x, one_hot)
             
             if self.total_steps % self.opt.print_freq == 0:
                 errors = self.get_errors()

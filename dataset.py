@@ -218,7 +218,7 @@ class KAMPdataset(Dataset):
             state = data[-1]
 
             x_tensor = torch.tensor(np.concatenate((s1,s2)),dtype=torch.float64)
-            y_tensor = torch.tensor(state, dtype=torch.float64)
+            y_tensor = torch.tensor(state, dtype=torch.int64)
 
             if is_biwavelet:
                 _, _, _, Wcoh, WXdt, freqs, coi = xwt(  trace_ref       = s1,

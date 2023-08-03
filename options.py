@@ -67,6 +67,7 @@ class Options():
         self.parser.add_argument('--w_adv', type=float, default=1, help='Adversarial loss weight')
         self.parser.add_argument('--w_con', type=float, default=50, help='Reconstruction loss weight')
         self.parser.add_argument('--w_enc', type=float, default=1, help='Encoder loss weight.')
+        self.parser.add_argument('--conditional', type=bool, default=False, help='Evaluation metric.')
         self.isTrain = True
         self.opt = None
 
