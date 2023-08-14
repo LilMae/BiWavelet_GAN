@@ -326,17 +326,29 @@ class BiGAN(BaseModel):
         self.total_steps = 0
         best_auc = 0
         
+        log_file = open('log.txt', mode='w')
+        
         # Train for niter epochs.
         print(">> Training model %s." % self.name)
         for self.epoch in range(self.opt.iter, self.opt.niter):
+            log_file.write(f'epoch : {self.epoch} \n')
             # Train for one epoch
             self.train_one_epoch()
-
+            log_file.write(f'err_ge : {self.loss_ge} \n')
+            log_file.write(f'err_d : {self.loss_d} \n')
+            
+            loss_img, loss_compress = self.test()
+            
+            print(f'loss for img : {loss_img}')
+            print(f'loss_for compress : {loss_compress}')
+            log_file.write(f'loss for img : {loss_img}')
+            log_file.write(f'loss_for compress : {loss_compress}')
+            
             self.save_weights(self.epoch)
             
             
         print(">> Training model %s.[Done]" % self.name)        
-    
+        log_file.close()
     
     def optimize_params(self, z, x, one_hot):
         self.x = x
@@ -368,12 +380,9 @@ class BiGAN(BaseModel):
 
         real_label = torch.ones(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
         fake_label = torch.zeros(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
-
-
         
         loss_ge = self.l_bce(out_real, fake_label) + self.l_bce(out_fake, real_label)
 
-        
         loss_ge.backward(retain_graph=True)
         self.optimizer_ge.step()
         loss_d = self.l_bce(self.netd(x.detach(), Ex.detach()), real_label) + self.l_bce(out_fake, fake_label)
@@ -383,11 +392,8 @@ class BiGAN(BaseModel):
         
         self.loss_ge = loss_ge.item()
         self.loss_d = loss_d.item()
-        
-
-
-
     
+        
         
     def get_errors(self):
         """ Get netD and netG errors.
@@ -422,6 +428,7 @@ class BiGAN(BaseModel):
                 one_hot = torch.nn.functional.one_hot(state, num_classes=4)
                 one_hot = one_hot.unsqueeze(dim=-1)
                 one_hot = one_hot.unsqueeze(dim=-1)
+                one_hot = one_hot.to(self.device)
 
 
                 z = torch.randn(size=(self.opt.batchsize, (self.opt.nz-4), 1, 1)).to(self.device).float()
@@ -445,3 +452,39 @@ class BiGAN(BaseModel):
                 self.visualizer.save_current_images(self.epoch, reals, fakes)
                 if self.opt.display:
                     self.visualizer.display_current_images(reals, fakes)
+            
+    def test(self):
+        
+        with torch.no_grad():
+            
+            loss_img = 0.0
+            loss_compress = 0.0
+            
+            for img, signal, state in tqdm(self.dataloader['test']):
+                
+                if self.opt.conditional:
+                    one_hot = torch.nn.functional.one_hot(state, num_classes=4)
+                    one_hot = one_hot.unsqueeze(dim=-1)
+                    one_hot = one_hot.unsqueeze(dim=-1)
+                    one_hot = one_hot.to(self.device)
+
+                    z = torch.randn(size=(self.opt.batchsize, (self.opt.nz-4), 1, 1)).to(self.device).float()
+                    z = torch.cat((z, one_hot), 1)
+                else:
+                    z = torch.randn(size=(self.opt.batchsize, self.opt.nz, 1, 1)).to(self.device).float()
+                    one_hot = False
+                
+                x = img.to(self.device).float()
+                
+                Gz = self.netg(z)
+                
+                if self.opt.conditional:
+                    Ex = self.nete(x)
+                    Ex = torch.cat((Ex, one_hot), 1)
+                else:
+                    Ex = self.nete(x)
+                
+                loss_img += torch.mean(torch.pow((x-Gz), 2), dim=1)
+                loss_compress += torch.mean(torch.pow((z-Ex), 2), dim=1)
+        
+        return loss_img.mean(), loss_compress.mena()
