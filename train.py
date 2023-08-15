@@ -5,6 +5,7 @@ from __future__ import print_function
 from options import Options
 from dataset import load_vib
 from lib.model import BiGAN
+from lib.my_model import BiVi
 
 ##
 def train():
@@ -19,7 +20,7 @@ def train():
     dataloader = load_vib(opt)
     ##
     # LOAD MODEL
-    model = BiGAN(opt, dataloader)
+    model = BiVi(opt, dataloader)
     ##
     # TRAIN MODEL
     model.train()

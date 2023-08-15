@@ -16,9 +16,11 @@ import torch.utils.data
 import torchvision.utils as vutils
 
 from lib.networks import Encoder, Decoder, NetD, weights_init
-from lib.visualizer import Visualizer
+from lib.visualizer import Visualizer, save_current_images
 from lib.loss import l2_loss
 from lib.evaluate import evaluate
+
+
 
 import matplotlib.pyplot as plt
 
@@ -128,11 +130,6 @@ class BaseModel():
                     counter_ratio = float(epoch_iter) / len(self.dataloader['train'].dataset)
                     self.visualizer.plot_current_errors(self.epoch, counter_ratio, errors)
 
-            if self.total_steps % self.opt.save_image_freq == 0:
-                reals, fakes, fixed = self.get_current_images()
-                self.visualizer.save_current_images(self.epoch, reals, fakes, fixed)
-                if self.opt.display:
-                    self.visualizer.display_current_images(reals, fakes, fixed)
 
         print(">> Training model %s. Epoch %d/%d" % (self.name, self.epoch+1, self.opt.niter))
         print(f'Errs : {errors}')
@@ -237,8 +234,6 @@ class BaseModel():
 
 ##
 class BiGAN(BaseModel):
-    """GANomaly Class
-    """
 
     @property
     def name(self): return 'BiGAN'
@@ -246,13 +241,10 @@ class BiGAN(BaseModel):
     def __init__(self, opt, dataloader):
         super(BiGAN, self).__init__(opt, dataloader)
 
-        # -- Misc attributes
         self.epoch = 0
         self.times = []
         self.total_steps = 0
 
-        ##
-        # Step 1. Create and initialize networks. 
         """
         
         BiGAN에는 Encoder, Generator, Decoder가 존재함
@@ -337,14 +329,18 @@ class BiGAN(BaseModel):
             log_file.write(f'err_ge : {self.loss_ge} \n')
             log_file.write(f'err_d : {self.loss_d} \n')
             
-            loss_img, loss_compress = self.test()
+            # loss_img, loss_compress = self.test()
+            # print(f'loss for img : {loss_img}')
+            # print(f'loss_for compress : {loss_compress}')
+            # log_file.write(f'loss for img : {loss_img}')
+            # log_file.write(f'loss_for compress : {loss_compress}')
             
-            print(f'loss for img : {loss_img}')
-            print(f'loss_for compress : {loss_compress}')
-            log_file.write(f'loss for img : {loss_img}')
-            log_file.write(f'loss_for compress : {loss_compress}')
-            
-            self.save_weights(self.epoch)
+            # 매 10에폭마다 저장
+            if self.epoch%10 == 0:
+                self.save_weights(self.epoch)
+                save_current_images(epoch=self.epoch, reals=self.x, fakes=self.Gz, dir=self.opt.outf)
+
+
             
             
         print(">> Training model %s.[Done]" % self.name)        
@@ -487,4 +483,4 @@ class BiGAN(BaseModel):
                 loss_img += torch.mean(torch.pow((x-Gz), 2), dim=1)
                 loss_compress += torch.mean(torch.pow((z-Ex), 2), dim=1)
         
-        return loss_img.mean(), loss_compress.mena()
+        return loss_img.mean(), loss_compress.mean()

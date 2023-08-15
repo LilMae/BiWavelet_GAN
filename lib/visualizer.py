@@ -166,13 +166,13 @@ class Visualizer():
         self.vis.images(reals, win=1, opts={'title': 'Reals'})
         self.vis.images(fakes, win=2, opts={'title': 'Fakes'})
         
-    def save_current_images(self, epoch, reals, fakes):
-        """ Save images for epoch i.
+def save_current_images(self, epoch, reals, fakes, dir):
+    """ Save images for epoch i.
 
-        Args:
-            epoch ([int])        : Current epoch
-            reals ([FloatTensor]): Real Image
-            fakes ([FloatTensor]): Fake Image
-        """
-        vutils.save_image(reals, '%s/reals.png' % self.img_dir, normalize=True)
-        vutils.save_image(fakes, '%s/fakes.png' % self.img_dir, normalize=True)
+    Args:
+        epoch ([int])        : Current epoch
+        reals ([FloatTensor]): Real Image
+        fakes ([FloatTensor]): Fake Image
+    """
+    vutils.save_image(reals, '%s/reals.png' % dir, normalize=True)
+    vutils.save_image(fakes, '%s/fakes.png' % dir, normalize=True)

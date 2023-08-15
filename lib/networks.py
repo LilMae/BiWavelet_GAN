@@ -171,17 +171,35 @@ class NetD(nn.Module):
 
         self.model = Encoder(isize = 16,  
                         nz = 1,         
-                        nc = nz*2,      
+                        nc = nz*3,      
                         ndf = ndf,      
                         ngpu = ngpu, 
                         n_extra_layers=n_extra_layers, 
                         add_final_conv=True)
         
+        # Enc sig : (2, isize) -> (nz, 1, 1)
+        self.Enc_sig1 = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=2*isize,
+                        out_features=nz),
+            nn.Linear(in_features=nz,
+                        out_features=nz)
+        )
+        # feature(nz, 1, 1) ->img(nc, isize, isize)
+        self.Enc_sig2 = Decoder(isize = 16,  
+                        nz = nz,     
+                        nc = nc,        
+                        ngf = ndf,    
+                        ngpu = ngpu, 
+                        n_extra_layers=0)
+
+
+        
         layers = list(self.model.main.children())
         self.classifier = nn.Sequential(layers[-1])
         self.model.add_module('Sigmoid', nn.Sigmoid())
 
-    def forward(self, x, z):
+    def forward(self, x, z, sig):
         x = self.Enc_x1(x)
         x_feateure = self.Enc_x2(x)
         
@@ -191,17 +209,87 @@ class NetD(nn.Module):
         
         # print(f'z_feature : {z_feature.size()}')
         
-        features = torch.cat((x_feateure,z_feature), dim=1)
+        sig_feature = self.Enc_sig1(sig)
+        sig_feature = sig_feature.unsqueeze(dim=-1).unsqueeze(dim=-1)
+        sig_feature = self.Enc_sig2(sig_feature)
+
+        features = torch.cat((x_feateure,z_feature, sig_feature), dim=1)
         features = self.model(features)
         # classifier = self.classifier(features)
         classifier = features.view(-1, 1).squeeze(1)
 
         return classifier
     
+
+class NetG(nn.Module):
+    """
+    img -> sig
+    """
+    def __init__(self, isize, nz, nc, ngf, ngpu, n_extra_layers=0, add_final_conv=True):
+        super(NetG, self).__init__()
+        self.isize = isize
+        # img'(nc, isize, isize) -> feature(nz, 1, 1)
+        self.encoder =Encoder(isize = isize,  
+                        nz = nz,     
+                        nc = nc,        
+                        ndf = ngf,    
+                        ngpu = ngpu, 
+                        n_extra_layers=0, 
+                        add_final_conv=True)
+        # feature(nz, 1, 1) -> sig'(2, isize)
+        self.fc = nn.Sequential(
+            nn.Linear(in_features=nz,
+                        out_features=2*isize),
+            nn.Linear(in_features=2*isize,
+                        out_features=2*isize)
+        )
+
+    def forward(self, x):
+        feature = self.encoder(x)
+        feature = feature.sqeeze()
+        sig = self.fc(feature)
+
+        sig1 = sig[:,:,:self.isize]
+        sig2 = sig[:,:,self.isize:]
+
+        sig = torch.concat((sig1,sig2),dim=1)
+
+        return sig
+
+class NetE(nn.Module):
+    """
+    sig -> img
+    """
+    def __init__(self, isize, nz, nc, ndf, ngpu, n_extra_layers=0, add_final_conv=True):
+        super(NetE, self).__init__()
+
+        # sig(2,isize) -> feature(nz, 1, 1)
+        self.fc = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=2*isize,
+                        out_features=nz),
+            nn.Linear(in_features=nz,
+                        out_features=nz)
+        )
+        # feature(nz, 1, 1) ->img(nc, isize, isize)
+        self.decoder = Decoder(isize = isize,  
+                        nz = nz,     
+                        nc = nc,        
+                        ngf = ndf,    
+                        ngpu = ngpu, 
+                        n_extra_layers=0)
+
+    def forward(self, x):
+
+        feature = self.fc(x)
+        feature = feature.unsqueeze(dim=-1).unsqueeze(dim=-1)
+        img = self.decoder(feature)
+        
+        return img
+
 if __name__ == '__main__':
     
-    
-    
+
     model = NetD(isize=256, nz=64, nc=1, ndf=16, ngpu=1)
     z = torch.randn(size=(2,64,1,1))
     x = torch.randn(size=(2,1,256,256))
