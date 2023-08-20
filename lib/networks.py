@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.parallel
+import torch.fft
 
 def weights_init(mod):
     """
@@ -175,7 +176,9 @@ class NetG(nn.Module):
             ngpu  = opt.ngpu
         )
         
-    def forward(self, z, x_style):
+    def forward(self, z, x):
+        
+        x_style = top3_frequencies(x[0])
         
         input_data = torch.cat(z, x_style)
         middle_feature = self.middle_feature(input_data)
@@ -287,6 +290,21 @@ class NetD(nn.Module):
         classifier = classifier.view(-1, 1).squeeze(1)
         
         return classifier
+
+def top3_frequencies(row_tensor):
+    # 1D FFT 수행
+    fft_result = torch.fft.fft(row_tensor)
+    
+    # magnitude 계산
+    magnitudes = torch.abs(fft_result)
+    
+    # DC 성분(0 주파수 성분) 제외
+    magnitudes[0] = 0.0
+    
+    # 크기가 큰 순서대로 3개의 인덱스 찾기
+    _, top3_indices = magnitudes.topk(3)
+    
+    return top3_indices
 
 # class NetD(nn.Module):
 #     def __init__(self, isize, nz, nc, ndf, ngpu, n_extra_layers=0, add_final_conv=True):
