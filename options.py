@@ -25,15 +25,22 @@ class Options():
         self.parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
         ##
-        # Base
+        # 데이터 세팅
         self.parser.add_argument('--dataroot', default='', help='path to dataset')
         self.parser.add_argument('--batchsize', type=int, default=64, help='input batch size')
-        self.parser.add_argument('--workers', type=int, help='number of data loading workers', default=8)
         self.parser.add_argument('--im_size', type=int, default=512, help='input image size.')
-        self.parser.add_argument('--window_size', type=int, default=10000, help='length if signal windowing.')
+        self.parser.add_argument('--window_size', type=int, default=8192, help='length if signal windowing.')
         self.parser.add_argument('--stride', type=int, default=100, help='stride of signal windowing.')
-        self.parser.add_argument('--nc', type=int, default=1, help='input image channels')
+        self.parser.add_argument('--nc', type=int, default=3, help='input image channels')
         self.parser.add_argument('--nz', type=int, default=64, help='size of the latent z vector')
+        self.parser.add_argument('--ns', type=int, default=3, help='number of style from x')
+        
+        # 컴퓨터 리소스
+        self.parser.add_argument('--workers', type=int, help='number of data loading workers', default=8)
+        
+        # 네트워크 구성
+        self.parser.add_argument('--middle_ch', type=int, default=16, help='middle feature channel')
+        self.parser.add_argument('--middle_size', type=int, default=64, help='middle feature size')
         
         self.parser.add_argument('--ngf', type=int, default=64)
         self.parser.add_argument('--ndf', type=int, default=64)
