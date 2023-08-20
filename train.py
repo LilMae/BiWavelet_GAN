@@ -18,12 +18,16 @@ def train():
     ##
     # LOAD DATA
     dataloader = load_vib(opt)
-    ##
-    # LOAD MODEL
-    model = BiVi(opt, dataloader)
-    ##
-    # TRAIN MODEL
-    model.train()
+    
+    sample = dataloader['test'][0]
+    
+    print(sample.keys())
+    
+    # # LOAD MODEL
+    # model = BiVi(opt, dataloader)
+    # ##
+    # # TRAIN MODEL
+    # model.train()
 
 if __name__ == '__main__':
     train()

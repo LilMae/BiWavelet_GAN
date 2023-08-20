@@ -8,6 +8,7 @@ import os
 from scipy import interpolate
 from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from xwt import xwt
 
@@ -153,20 +154,21 @@ def DataPreprocessing(data_root):
     test_pd.to_csv(os.path.join(data_root, 'test.csv'), index=False)
 
 class KAMPdataset(Dataset):
-    def __init__(self, data_path, window_size, stride, is_uni=False):
+    def __init__(self, data_path, window_size, stride, n_ch=2, is_biwavelet=True, im_size=512):
         """KAMP 데이터에 기반한 파이토치 데이터셋
 
         Args:
             data_path (str): 데이터셋 경로
             window_size (int): 진동 데이터 분석 윈도우 크기
             stride (int): 윈도우를 이동하는 stride 크기
-            is_uni (bool, optional): 단변량 분석을 할지, 이변량 분석을 할지의 여부(추후 다변량으로 확장 가능할 수도 있음)
+            n_ch (int, optional): 입력으로 사용하고자 하는 채널 개수
         """
         
         data_pd = pd.read_csv(data_path)
-
+        self.im_size = im_size
         self.dataset = []
-        self.is_uni = is_uni
+        self.n_ch = n_ch
+        self.is_biwavelet = is_biwavelet
 
         print(f'building dataset...')
         # make Slice by strid and window_size
@@ -174,54 +176,64 @@ class KAMPdataset(Dataset):
             start_idx = idx
             end_idx = idx+window_size
 
-            if len(data_pd) < end_idx:
+
+            if (len(data_pd)-1) < end_idx:
                 break
-            if data_pd['class'][start_idx] != data_pd['class'][end_idx]:
-                continue
-                
+            
+            try:
+                if data_pd['class'][start_idx] != data_pd['class'][end_idx]:
+                    continue
+            except:
+                print(f'start : {start_idx}')
+                print(f'end : {end_idx}')
+                exit()
             sensor1_np = data_pd['0'][start_idx:end_idx].to_numpy()
             sensor2_np = data_pd['1'][start_idx:end_idx].to_numpy()
             sensor3_np = data_pd['2'][start_idx:end_idx].to_numpy()
             sensor4_np = data_pd['3'][start_idx:end_idx].to_numpy()
-            class_np = data_pd['class'][start_idx]
+            class_np = data_pd['class'][end_idx]
 
-            if self.is_uni:
+
+            if self.n_ch == 1:
                 self.dataset.append([sensor1_np, class_np])
                 self.dataset.append([sensor2_np, class_np])
                 self.dataset.append([sensor3_np, class_np])
                 self.dataset.append([sensor4_np, class_np])
-            else:
+            elif self.n_ch == 2:
                 self.dataset.append([sensor1_np, sensor2_np ,class_np])
                 self.dataset.append([sensor1_np, sensor3_np ,class_np])
                 self.dataset.append([sensor1_np, sensor4_np ,class_np])
                 self.dataset.append([sensor2_np, sensor3_np ,class_np])
                 self.dataset.append([sensor2_np, sensor4_np ,class_np])
                 self.dataset.append([sensor3_np, sensor4_np ,class_np])
+            else:
+                print(f'Not Implemented Yet... n_ch : {self.n_ch} ')
 
     def __len__(self):
         return len(self.dataset)
 
-    def __getitem__(self, idx, is_biwavelet=True):
+    def __getitem__(self, idx):
         
-        if self.is_uni:
+        if self.n_ch == 1:
             data = self.dataset[idx]
-            vib = torch.tensor(data[0], dtype=torch.float64)
-            state = torch.tensor(data[-1], dtype=torch.float64)
+            sensor_tensor = torch.tensor(data[0], dtype=torch.float64)
+            class_tensor = torch.tensor(data[-1], dtype=torch.float64)
 
-            return vib, state
+            return {'sensor' : sensor_tensor, 'class' :class_tensor}
         
-        else:
+        elif self.n_ch ==2:
             data = self.dataset[idx]
+            
             s1 = data[0]
             s2 = data[1]
-
             state = data[-1]
 
-            x_tensor = torch.tensor(np.concatenate((s1,s2)),dtype=torch.float64)
-            y_tensor = torch.tensor(state, dtype=torch.int64)
+            sensor_tensor = torch.tensor(np.concatenate((s1,s2), axis=0),dtype=torch.float64)
+            class_tensor = torch.tensor(state, dtype=torch.int64)
 
-            if is_biwavelet:
-                _, _, _, Wcoh, WXdt, freqs, coi = xwt(  trace_ref       = s1,
+            if self.is_biwavelet:
+                time = np.array([i for i in range(len(s1))])
+                WXamp, WXspec, WXangle, Wcoh, WXdt, freqs, coi = xwt(  trace_ref       = s1,
                                                         trace_current   = s2,
                                                         fs              = 10000,
                                                         ns              = 3,
@@ -231,29 +243,23 @@ class KAMPdataset(Dataset):
                                                         freqmax         = 25,
                                                         nptsfreq        = len(s1))
                 
-                Wcoh_tensor = torch.tensor(Wcoh, dtype=torch.float64)
-                Wcoh_tensor = Wcoh_tensor.unsqueeze(0)
+                WXdt_tensor = XWT_tensor(time,freqs,WXdt,im_size=self.im_size)
+                Wcoh_tensor = XWT_tensor(time,freqs,Wcoh,im_size=self.im_size)
                 
+                return {'sensor' : sensor_tensor, 'class' :class_tensor, 'Wxdt' : WXdt_tensor, 'Wcoh' : Wcoh_tensor}
 
-                return Wcoh_tensor, x_tensor, y_tensor
+            return {'sensor' : sensor_tensor, 'class' :class_tensor}
 
-            return x_tensor, y_tensor
-
-if __name__ =='__main__':
-    data_root = os.path.join(os.getcwd(), 'data')
-    DataPreprocessing(data_root)
-
-    # my_data = KAMPdataset(data_root='./data/test.csv', window_size=256, stride=100)
-    # sample = my_data.__getitem__(0)
-    
 def load_vib(opt):
     
     train_dataset = KAMPdataset(data_path=os.path.join(os.getcwd(), 'data','train.csv'),
-                                window_size=opt.isize,
-                                stride=100)
+                                window_size=opt.window_size,
+                                stride=opt.stride,
+                                im_size=opt.im_size)
     test_dataset = KAMPdataset(data_path=os.path.join(os.getcwd(), 'data','test.csv'),
-                               window_size=opt.isize,
-                                stride=100)
+                               window_size=opt.window_size,
+                                stride=opt.stride,
+                                im_size=opt.im_size)
     
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                                batch_size=opt.batchsize,
@@ -271,3 +277,41 @@ def load_vib(opt):
                                                 else lambda x: np.random.seed(opt.manualseed)))
     
     return {'train' : train_loader, 'test' : test_loader}
+
+def XWT_tensor(time, freqs, target, im_size=512):
+    # DPI 값을 설정합니다.
+    dpi = 500  # 원하는 DPI 값을 이곳에 설정하세요.
+
+    # Figure를 생성할 때 DPI를 지정합니다.
+    fig = plt.figure(dpi=dpi)
+
+    # 주어진 코드
+    plt.pcolormesh(time, freqs, target, cmap='jet_r', edgecolors='none')
+    plt.clim([-0.02, 0.01])
+    plt.ylim(freqs[-1], freqs[0])
+    plt.axis('off')
+
+    # 그림을 그리고 바로 캔버스에서 데이터를 가져와 넘파이 배열로 변환
+    plt.draw()
+    canvas = plt.gca().get_figure().canvas
+    image_array = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
+    image_array = image_array.reshape(canvas.get_width_height()[::-1] + (3,))
+
+    # 흰색(255, 255, 255)을 제거
+    non_white_pixels = (image_array < [255, 255, 255]).any(axis=2)
+    non_white_rows = non_white_pixels.any(axis=1)
+    non_white_columns = non_white_pixels.any(axis=0)
+    image_array_cropped = image_array[non_white_rows][:, non_white_columns]
+    
+    # 넘파이 배열을 텐서로 변환
+    image_tensor = torch.from_numpy(image_array_cropped).permute(2, 0, 1).float() / 255.0
+    
+    # 리쉐이핑: 원하는 형태로 변경 (예: (3, 224, 224) 등)
+    reshaped_tensor = torch.nn.functional.interpolate(image_tensor.unsqueeze(0), size=(im_size, im_size), mode='bilinear', align_corners=False)
+    
+    return reshaped_tensor.squeeze(0)  # batch dimension 제거 후 반환
+
+if __name__ =='__main__':
+    print(f'Testing Dataset')
+    test = KAMPdataset(os.path.join(os.getcwd(), 'data','test.csv'), 10000, 1000)
+    samplw = test[0]

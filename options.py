@@ -26,18 +26,20 @@ class Options():
 
         ##
         # Base
-        self.parser.add_argument('--dataset', default='Vib', help='folder | cifar10 | mnist ')
         self.parser.add_argument('--dataroot', default='', help='path to dataset')
         self.parser.add_argument('--batchsize', type=int, default=64, help='input batch size')
         self.parser.add_argument('--workers', type=int, help='number of data loading workers', default=8)
-        self.parser.add_argument('--droplast', action='store_true', default=True, help='Drop last batch size.')
-        self.parser.add_argument('--isize', type=int, default=256, help='input image size.')
+        self.parser.add_argument('--im_size', type=int, default=512, help='input image size.')
+        self.parser.add_argument('--window_size', type=int, default=10000, help='length if signal windowing.')
+        self.parser.add_argument('--stride', type=int, default=100, help='stride of signal windowing.')
         self.parser.add_argument('--nc', type=int, default=1, help='input image channels')
         self.parser.add_argument('--nz', type=int, default=64, help='size of the latent z vector')
+        
         self.parser.add_argument('--ngf', type=int, default=64)
         self.parser.add_argument('--ndf', type=int, default=64)
+        
         self.parser.add_argument('--extralayers', type=int, default=0, help='Number of extra layers on gen and disc')
-        self.parser.add_argument('--device', type=str, default='gpu', help='Device: gpu | cpu')
+        self.parser.add_argument('--device', type=str, default='cpu', help='Device: gpu | cpu')
         self.parser.add_argument('--gpu_ids', type=str, default='0,1,2,3', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         self.parser.add_argument('--ngpu', type=int, default=4, help='number of GPUs to use')
         self.parser.add_argument('--name', type=str, default='experiment_name', help='name of the experiment')
@@ -98,7 +100,7 @@ class Options():
 
         # save to the disk
         if self.opt.name == 'experiment_name':
-            self.opt.name = "%s/%s" % (self.opt.model, self.opt.dataset)
+            self.opt.name = f'BiVi : ver{1}'
         expr_dir = os.path.join(self.opt.outf, self.opt.name, 'train')
         test_dir = os.path.join(self.opt.outf, self.opt.name, 'test')
 
