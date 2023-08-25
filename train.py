@@ -4,8 +4,7 @@ from __future__ import print_function
 
 from options import Options
 from dataset import load_vib
-from lib.model import BiGAN
-from BiVi import BiVi
+from lib.model import BiVi
 
 ##
 def train():

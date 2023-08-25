@@ -27,39 +27,48 @@ class Options():
         ##
         # 데이터 세팅
         self.parser.add_argument('--dataroot', default='', help='path to dataset')
-        self.parser.add_argument('--batchsize', type=int, default=64, help='input batch size')
-        self.parser.add_argument('--im_size', type=int, default=512, help='input image size.')
-        self.parser.add_argument('--window_size', type=int, default=8192, help='length if signal windowing.')
+        self.parser.add_argument('--batchsize', type=int, default=4, help='input batch size')
+        
+        self.parser.add_argument('--z_size', type=int, default=16, help='size of z')
+        self.parser.add_argument('--z_ch', type=int, default=1, help='number of channel of z')
+        
+        self.parser.add_argument('--img_size', type=int, default=512, help='input image size.')
+        self.parser.add_argument('--img_ch', type=int, default=3, help='input image size.')
+        
+        self.parser.add_argument('--feature_size', type=int, default=512, help='input image size.')
+        self.parser.add_argument('--feature_ch', type=int, default=512, help='input image size.')
+        
+        self.parser.add_argument('--signal_size', type=int, default=256, help='length if signal windowing.')
+        self.parser.add_argument('--signal_ch', type=int, default=2, help='length if signal windowing.')
+        
         self.parser.add_argument('--stride', type=int, default=100, help='stride of signal windowing.')
-        self.parser.add_argument('--nc', type=int, default=3, help='input image channels')
-        self.parser.add_argument('--nz', type=int, default=64, help='size of the latent z vector')
-        self.parser.add_argument('--ns', type=int, default=3, help='number of style from x')
+        self.parser.add_argument('--n_cls', type=int, default=4, help='stride of signal windowing.')
+        
         
         # 컴퓨터 리소스
         self.parser.add_argument('--workers', type=int, help='number of data loading workers', default=8)
         
         # 네트워크 구성
-        self.parser.add_argument('--middle_ch', type=int, default=16, help='middle feature channel')
-        self.parser.add_argument('--middle_size', type=int, default=64, help='middle feature size')
         
         self.parser.add_argument('--ngf', type=int, default=64)
         self.parser.add_argument('--ndf', type=int, default=64)
         
         self.parser.add_argument('--extralayers', type=int, default=0, help='Number of extra layers on gen and disc')
         self.parser.add_argument('--device', type=str, default='cpu', help='Device: gpu | cpu')
-        self.parser.add_argument('--gpu_ids', type=str, default='0,1,2,3', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
-        self.parser.add_argument('--ngpu', type=int, default=4, help='number of GPUs to use')
+        self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
+        self.parser.add_argument('--ngpu', type=int, default=0, help='number of GPUs to use')
         self.parser.add_argument('--name', type=str, default='experiment_name', help='name of the experiment')
         self.parser.add_argument('--model', type=str, default='ganomaly', help='chooses which model to use. ganomaly')
+        
         self.parser.add_argument('--display_server', type=str, default="http://localhost", help='visdom server of the web display')
         self.parser.add_argument('--display_port', type=int, default=8097, help='visdom port of the web display')
         self.parser.add_argument('--display_id', type=int, default=0, help='window id of the web display')
         self.parser.add_argument('--display', action='store_true', help='Use visdom.')
         self.parser.add_argument('--outf', default='./output', help='folder to output images and model checkpoints')
         self.parser.add_argument('--manualseed', default=-1, type=int, help='manual seed')
-        self.parser.add_argument('--abnormal_class', default='car', help='Anomaly class idx for mnist and cifar datasets')
+        
         self.parser.add_argument('--proportion', type=float, default=0.1, help='Proportion of anomalies in test set.')
-        self.parser.add_argument('--metric', type=str, default='roc', help='Evaluation metric.')
+        self.parser.add_argument('--metric', type=str, default='loss', help='Evaluation metric.')
 
         ##
         # Train

@@ -154,27 +154,27 @@ def DataPreprocessing(data_root):
     test_pd.to_csv(os.path.join(data_root, 'test.csv'), index=False)
 
 class KAMPdataset(Dataset):
-    def __init__(self, data_path, window_size, stride, n_ch=2, is_biwavelet=True, im_size=512):
+    def __init__(self, data_path, signal_size, stride, n_ch=2, is_biwavelet=True, img_size=512):
         """KAMP 데이터에 기반한 파이토치 데이터셋
 
         Args:
             data_path (str): 데이터셋 경로
-            window_size (int): 진동 데이터 분석 윈도우 크기
+            signal_size (int): 진동 데이터 분석 윈도우 크기
             stride (int): 윈도우를 이동하는 stride 크기
             n_ch (int, optional): 입력으로 사용하고자 하는 채널 개수
         """
         
         data_pd = pd.read_csv(data_path)
-        self.im_size = im_size
+        self.img_size = img_size
         self.dataset = []
         self.n_ch = n_ch
         self.is_biwavelet = is_biwavelet
 
         print(f'building dataset...')
-        # make Slice by strid and window_size
+        # make Slice by strid and signal_size
         for idx in tqdm(range(0, len(data_pd), stride)):
             start_idx = idx
-            end_idx = idx+window_size
+            end_idx = idx+signal_size
 
 
             if (len(data_pd)-1) < end_idx:
@@ -243,8 +243,8 @@ class KAMPdataset(Dataset):
                                                         freqmax         = 25,
                                                         nptsfreq        = len(s1))
                 
-                WXdt_tensor = XWT_tensor(time,freqs,WXdt,im_size=self.im_size)
-                Wcoh_tensor = XWT_tensor(time,freqs,Wcoh,im_size=self.im_size)
+                WXdt_tensor = XWT_tensor(time,freqs,WXdt,img_size=self.img_size)
+                Wcoh_tensor = XWT_tensor(time,freqs,Wcoh,img_size=self.img_size)
                 
                 return {'sensor' : sensor_tensor, 'class' :class_tensor, 'Wxdt' : WXdt_tensor, 'Wcoh' : Wcoh_tensor}
 
@@ -253,13 +253,13 @@ class KAMPdataset(Dataset):
 def load_vib(opt):
     
     train_dataset = KAMPdataset(data_path=os.path.join(os.getcwd(), 'data','train.csv'),
-                                window_size=opt.window_size,
+                                signal_size=opt.signal_size,
                                 stride=opt.stride,
-                                im_size=opt.im_size)
+                                img_size=opt.img_size)
     test_dataset = KAMPdataset(data_path=os.path.join(os.getcwd(), 'data','test.csv'),
-                               window_size=opt.window_size,
+                               signal_size=opt.signal_size,
                                 stride=opt.stride,
-                                im_size=opt.im_size)
+                                img_size=opt.img_size)
     
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                                batch_size=opt.batchsize,
@@ -278,7 +278,7 @@ def load_vib(opt):
     
     return {'train' : train_loader, 'test' : test_loader}
 
-def XWT_tensor(time, freqs, target, im_size=512):
+def XWT_tensor(time, freqs, target, img_size=512):
     # DPI 값을 설정합니다.
     dpi = 500  # 원하는 DPI 값을 이곳에 설정하세요.
 
@@ -307,7 +307,7 @@ def XWT_tensor(time, freqs, target, im_size=512):
     image_tensor = torch.from_numpy(image_array_cropped).permute(2, 0, 1).float() / 255.0
     
     # 리쉐이핑: 원하는 형태로 변경 (예: (3, 224, 224) 등)
-    reshaped_tensor = torch.nn.functional.interpolate(image_tensor.unsqueeze(0), size=(im_size, im_size), mode='bilinear', align_corners=False)
+    reshaped_tensor = torch.nn.functional.interpolate(image_tensor.unsqueeze(0), size=(img_size, img_size), mode='bilinear', align_corners=False)
     
     return reshaped_tensor.squeeze(0)  # batch dimension 제거 후 반환
 
