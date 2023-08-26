@@ -27,18 +27,18 @@ class Options():
         ##
         # 데이터 세팅
         self.parser.add_argument('--dataroot', default='', help='path to dataset')
-        self.parser.add_argument('--batchsize', type=int, default=4, help='input batch size')
+        self.parser.add_argument('--batchsize', type=int, default=2, help='input batch size')
         
         self.parser.add_argument('--z_size', type=int, default=16, help='size of z')
         self.parser.add_argument('--z_ch', type=int, default=1, help='number of channel of z')
         
-        self.parser.add_argument('--img_size', type=int, default=512, help='input image size.')
+        self.parser.add_argument('--img_size', type=int, default=128, help='input image size.')
         self.parser.add_argument('--img_ch', type=int, default=3, help='input image size.')
         
-        self.parser.add_argument('--feature_size', type=int, default=512, help='input image size.')
-        self.parser.add_argument('--feature_ch', type=int, default=512, help='input image size.')
+        self.parser.add_argument('--feature_size', type=int, default=64, help='input image size.')
+        self.parser.add_argument('--feature_ch', type=int, default=64, help='input image size.')
         
-        self.parser.add_argument('--signal_size', type=int, default=256, help='length if signal windowing.')
+        self.parser.add_argument('--signal_size', type=int, default=512, help='length if signal windowing.')
         self.parser.add_argument('--signal_ch', type=int, default=2, help='length if signal windowing.')
         
         self.parser.add_argument('--stride', type=int, default=100, help='stride of signal windowing.')
@@ -46,7 +46,7 @@ class Options():
         
         
         # 컴퓨터 리소스
-        self.parser.add_argument('--workers', type=int, help='number of data loading workers', default=8)
+        self.parser.add_argument('--workers', type=int, help='number of data loading workers', default=0)
         
         # 네트워크 구성
         
@@ -54,7 +54,7 @@ class Options():
         self.parser.add_argument('--ndf', type=int, default=64)
         
         self.parser.add_argument('--extralayers', type=int, default=0, help='Number of extra layers on gen and disc')
-        self.parser.add_argument('--device', type=str, default='cpu', help='Device: gpu | cpu')
+        self.parser.add_argument('--device', type=str, default='gpu', help='Device: gpu | cpu')
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         self.parser.add_argument('--ngpu', type=int, default=0, help='number of GPUs to use')
         self.parser.add_argument('--name', type=str, default='experiment_name', help='name of the experiment')
@@ -66,7 +66,6 @@ class Options():
         self.parser.add_argument('--display', action='store_true', help='Use visdom.')
         self.parser.add_argument('--outf', default='./output', help='folder to output images and model checkpoints')
         self.parser.add_argument('--manualseed', default=-1, type=int, help='manual seed')
-        
         self.parser.add_argument('--proportion', type=float, default=0.1, help='Proportion of anomalies in test set.')
         self.parser.add_argument('--metric', type=str, default='loss', help='Evaluation metric.')
 

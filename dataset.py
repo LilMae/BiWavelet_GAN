@@ -228,9 +228,9 @@ class KAMPdataset(Dataset):
             s2 = data[1]
             state = data[-1]
 
-            sensor_tensor = torch.tensor(np.concatenate((s1,s2), axis=0),dtype=torch.float64)
+            sensor_tensor = torch.tensor(np.stack([s1, s2]),dtype=torch.float64)
             class_tensor = torch.tensor(state, dtype=torch.int64)
-
+            
             if self.is_biwavelet:
                 time = np.array([i for i in range(len(s1))])
                 WXamp, WXspec, WXangle, Wcoh, WXdt, freqs, coi = xwt(  trace_ref       = s1,
@@ -252,7 +252,7 @@ class KAMPdataset(Dataset):
 
 def load_vib(opt):
     
-    train_dataset = KAMPdataset(data_path=os.path.join(os.getcwd(), 'data','train.csv'),
+    train_dataset = KAMPdataset(data_path=os.path.join(os.getcwd(), 'data','test.csv'),
                                 signal_size=opt.signal_size,
                                 stride=opt.stride,
                                 img_size=opt.img_size)

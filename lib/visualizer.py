@@ -36,6 +36,7 @@ class Visualizer():
         self.plot_data = None
         self.plot_res = None
 
+        # --
         # Path to train and test directories.
         self.img_dir = os.path.join(opt.outf, opt.name, 'train', 'images')
         self.tst_img_dir = os.path.join(opt.outf, opt.name, 'test', 'images')
@@ -150,7 +151,7 @@ class Visualizer():
         with open(self.log_name, "a") as log_file:
             log_file.write('%s\n' % message)
 
-    def display_current_images(self, reals, fakes):
+    def display_current_images(self, reals, fakes, fixed):
         """ Display current images.
 
         Args:
@@ -162,17 +163,20 @@ class Visualizer():
         """
         reals = self.normalize(reals.cpu().numpy())
         fakes = self.normalize(fakes.cpu().numpy())
+        fixed = self.normalize(fixed.cpu().numpy())
 
         self.vis.images(reals, win=1, opts={'title': 'Reals'})
         self.vis.images(fakes, win=2, opts={'title': 'Fakes'})
-        
-def save_current_images(self, epoch, reals, fakes, dir):
-    """ Save images for epoch i.
+        self.vis.images(fixed, win=3, opts={'title': 'Fixed'})
 
-    Args:
-        epoch ([int])        : Current epoch
-        reals ([FloatTensor]): Real Image
-        fakes ([FloatTensor]): Fake Image
-    """
-    vutils.save_image(reals, '%s/reals.png' % dir, normalize=True)
-    vutils.save_image(fakes, '%s/fakes.png' % dir, normalize=True)
+    def save_current_images(self, epoch, reals, fakes):
+        """ Save images for epoch i.
+
+        Args:
+            epoch ([int])        : Current epoch
+            reals ([FloatTensor]): Real Image
+            fakes ([FloatTensor]): Fake Image
+            fixed ([FloatTensor]): Fixed Fake Image
+        """
+        vutils.save_image(reals, '%s/reals.png' % self.img_dir, normalize=True)
+        vutils.save_image(fakes, '%s/fakes.png' % self.img_dir, normalize=True)

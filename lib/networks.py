@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.parallel
 import torch.fft
 from options import Options
 def weights_init(mod):
@@ -63,10 +62,8 @@ class Encoder(nn.Module):
         self.main = main
 
     def forward(self, input):
-        if self.ngpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
-        else:
-            output = self.main(input)
+
+        output = self.main(input)
 
         return output
 
@@ -121,10 +118,8 @@ class Decoder(nn.Module):
         self.main = main
 
     def forward(self, input):
-        if self.ngpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
-        else:
-            output = self.main(input)
+
+        output = self.main(input)
         return output
 
 
@@ -293,6 +288,7 @@ class NetD(nn.Module):
 
 def extract_and_reconstruct(tensor):
     # 입력 텐서의 크기 확인
+    
     batch, ch,  n = tensor.shape
     
     # FFT 수행
@@ -304,22 +300,8 @@ def extract_and_reconstruct(tensor):
     
     # IFFT 수행하여 원래의 시간 영역으로 복구
     reconstructed = torch.fft.ifft(fft_result, n=n).real
-    
+
     return reconstructed
-def top3_frequencies(row_tensor):
-    # 1D FFT 수행
-    fft_result = torch.fft.fft(row_tensor)
-    
-    # magnitude 계산
-    magnitudes = torch.abs(fft_result)
-    
-    # DC 성분(0 주파수 성분) 제외
-    magnitudes[0] = 0.0
-    
-    # 크기가 큰 순서대로 3개의 인덱스 찾기
-    _, top3_indices = magnitudes.topk(3)
-    
-    return top3_indices
 
     
 class Encoder_1D(nn.Module):
@@ -369,10 +351,8 @@ class Encoder_1D(nn.Module):
         self.main = main
 
     def forward(self, input):
-        if self.ngpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
-        else:
-            output = self.main(input)
+
+        output = self.main(input)
 
         return output
 
@@ -427,10 +407,8 @@ class Decoder_1D(nn.Module):
         self.main = main
 
     def forward(self, input):
-        if self.ngpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
-        else:
-            output = self.main(input)
+
+        output = self.main(input)
         return output
 
 
@@ -459,7 +437,7 @@ class BiVi_NetG(nn.Module):
     
     
     def forward(self, z, x):
-
+        
         feature = self.enc(z)
 
         x_hat = self.dec2(feature)
