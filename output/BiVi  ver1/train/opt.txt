@@ -1,0 +1,46 @@
+------------ Options -------------
+batchsize: 32
+beta1: 0.5
+conditional: True
+dataroot: 
+device: gpu
+display: False
+display_id: 0
+display_port: 8097
+display_server: http://localhost
+extralayers: 0
+feature_ch: 64
+feature_size: 64
+gpu_ids: [0]
+img_ch: 3
+img_size: 128
+isTrain: True
+iter: 0
+load_weights: False
+lr: 0.0002
+manualseed: -1
+metric: loss
+model: ganomaly
+n_cls: 4
+name: BiVi : ver1
+ndf: 64
+ngf: 64
+ngpu: 0
+niter: 300
+outf: ./output
+phase: train
+print_freq: 100
+proportion: 0.1
+resume: 
+save_image_freq: 100
+save_test_images: False
+signal_ch: 2
+signal_size: 512
+stride: 100
+w_adv: 1
+w_con: 50
+w_enc: 1
+workers: 0
+z_ch: 1
+z_size: 16
+-------------- End ----------------
